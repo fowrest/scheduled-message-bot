@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  rabbitmq: 
+      image: heidiks/rabbitmq-delayed-message-exchange
+      ports:
+        - 5672:5672
+        - 15672:15672
+
+  postgres:
+      image: postgres
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_PASSWORD: password
+      command: postgres -c listen_addresses='*'
+      ports:
+        - 5432:5432
+      
+volumes:
+  postgres_data:
+      driver: local

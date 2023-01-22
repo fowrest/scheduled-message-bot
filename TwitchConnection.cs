@@ -16,11 +16,13 @@ namespace Twitch
         public event ChatMessageHandler OnMessage = delegate { };
         public delegate void ChatMessageHandler((string Username, string Message, string Channel) chatMessage);
         private Channel<(string Username, string Message, string Channel)> ingestQueue = Channel.CreateUnbounded<(string Username, string Message, string Channel)>();
+        private string[] FilterKeywords;
 
-        public TwitchConnection(string username, string password)
+        public TwitchConnection(string username, string password, string[] filterKeywords)
         {
             this.username = username;
             this.password = password;
+            this.FilterKeywords = filterKeywords;
         }
 
         public async Task Connect()
@@ -75,9 +77,12 @@ namespace Twitch
                 if (split.Length > 2 && split[1] == "PRIVMSG")
                 {
                     var message = this.ParseMessage(split);
-                    // TODO: Quick rule here to filter out messages that are completly unrelevant. Maybe have to start with "!" to be considered valid.
-                    // Or maybe they have to be mod/brodcaster
-                    await ingestQueue.Writer.WriteAsync(message);
+                    var matchesFilterWord = this.FilterKeywords.Any((keyword) => message.Message.StartsWith(keyword));
+
+                    if (matchesFilterWord)
+                    {
+                        await ingestQueue.Writer.WriteAsync(message);
+                    }
                 }
             }
         }
