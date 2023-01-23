@@ -6,8 +6,7 @@ class DelayedRabbitHandler
 {
     private IModel channel;
 
-
-    public event EventHandler<BasicDeliverEventArgs> OnMessage = (model, ea) => { Console.WriteLine("Defalt behaviour"); };
+    private event EventHandler<BasicDeliverEventArgs>? OnMessageHandler; // (model, ea) => { Console.WriteLine("Defalt behaviour"); };
 
     public DelayedRabbitHandler()
     {
@@ -32,6 +31,23 @@ class DelayedRabbitHandler
         channel.BasicConsume(queue: "queuedCommands", autoAck: false, consumer: consumer);
 
         this.channel = channel;
+    }
+
+    private void OnMessage(object? sender, BasicDeliverEventArgs data)
+    {
+        Console.WriteLine("Mesage");
+        if (this.OnMessageHandler == null)
+        {
+            Console.WriteLine("No handler");
+            return;
+        }
+
+        this.OnMessageHandler(sender, data);
+    }
+
+    public void RegisterOnMessageHandler(EventHandler<BasicDeliverEventArgs> handler)
+    {
+        this.OnMessageHandler = handler;
     }
 
     public void QueueCommand(string text, int waitTime)

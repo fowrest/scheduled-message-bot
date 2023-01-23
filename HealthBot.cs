@@ -28,7 +28,7 @@ namespace Health
             twitchConnection.OnMessage += this.HandleChatMessage;
 
             this.rabbitHandler = new DelayedRabbitHandler();
-            this.rabbitHandler.OnMessage += this.HandleRabbitMessage; // TODO: For some reason this is not triggered
+            this.rabbitHandler.RegisterOnMessageHandler(this.HandleRabbitMessage);
         }
 
         private void HandleChatMessage((string Username, string Message, string Channel) message)
