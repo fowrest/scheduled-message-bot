@@ -1,6 +1,6 @@
 ﻿using Health;
 
-static async Task Start()
+static void Start()
 {
     string password = "ABC123";
     string username = "justinfan1233211";

@@ -59,7 +59,7 @@ namespace Twitch
                 {
                     continue;
                 }
-                string line = streamReader.ReadLine(); // :96allskills!96allskills@96allskills.tmi.twitch.tv PRIVMSG #alveussanctuary :waaa Spaceee a password
+                string? line = streamReader.ReadLine(); // :96allskills!96allskills@96allskills.tmi.twitch.tv PRIVMSG #alveussanctuary :waaa Spaceee a password
 
                 if (line == null)
                 {
@@ -71,7 +71,10 @@ namespace Twitch
                 if (line.StartsWith("PING"))
                 {
                     Console.WriteLine("PONG");
-                    await streamWriter.WriteLineAsync($"PONG {split[1]}");
+                    if (streamWriter != null)
+                    {
+                        await streamWriter.WriteLineAsync($"PONG {split[1]}");
+                    }
                 }
 
                 if (split.Length > 2 && split[1] == "PRIVMSG")
@@ -99,13 +102,19 @@ namespace Twitch
         public async Task SendMessage(string channel, string message)
         {
             await connected.Task;
-            await streamWriter.WriteLineAsync($"PRIVMSG #{channel} :{message}");
+            if (streamWriter != null)
+            {
+                await streamWriter.WriteLineAsync($"PRIVMSG #{channel} :{message}");
+            }
         }
 
         public async Task JoinChannel(string channel)
         {
             await connected.Task;
-            await streamWriter.WriteLineAsync($"JOIN #{channel}");
+            if (streamWriter != null)
+            {
+                await streamWriter.WriteLineAsync($"JOIN #{channel}");
+            }
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Health
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Bad time");
+                    Console.WriteLine("Bad time: " + e.Message);
                     return;
                 }
 
@@ -61,7 +61,6 @@ namespace Health
                 }
 
                 var timerMessage = toEnqueue[2];
-
                 // Save to db?
 
                 this.rabbitHandler.QueueCommand(timerMessage, time * 1000);
