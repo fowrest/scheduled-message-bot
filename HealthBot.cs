@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Database;
 using RabbitMQ.Client.Events;
 using Twitch;
 
@@ -22,6 +23,8 @@ namespace Health
 
         private static string[] keywords = { "healthBot" };
 
+        private TimerContext TimerContext = new TimerContext();
+
         public HealthBot(string username, string password)
         {
             this.twitchConnection = new TwitchConnection(username, password, keywords);
@@ -29,6 +32,9 @@ namespace Health
 
             this.rabbitHandler = new DelayedRabbitHandler();
             this.rabbitHandler.RegisterOnMessageHandler(this.HandleRabbitMessage);
+
+            TimerContext.Database.EnsureDeleted(); // TODO: This is for testing
+            TimerContext.Database.EnsureCreated();
         }
 
         private void HandleChatMessage((string Username, string Message, string Channel) message)
@@ -36,13 +42,12 @@ namespace Health
             Console.WriteLine(message.Username + " | " + message.Message);
             var trimmedMessage = message.Message.Substring("healthBot".Length + 1);
 
-            // TODO: Take care of message
             if (trimmedMessage.StartsWith(START_TIMER))
             {
                 // Add to rabbit and DB?
                 var messageContent = trimmedMessage.Substring(START_TIMER.Length + 1);
                 var toEnqueue = messageContent.Split(" ", 3);
-                var id = toEnqueue[0];
+                var userTimerId = toEnqueue[0];
                 int time = -1;
                 try
                 {
@@ -61,9 +66,13 @@ namespace Health
                 }
 
                 var timerMessage = toEnqueue[2];
-                // Save to db?
+                var timerId = Guid.NewGuid().ToString();
+                var timer = new Database.Timer(timerId, message.Channel, userTimerId, 1, timerMessage);
 
-                this.rabbitHandler.QueueCommand(timerMessage, time * 1000);
+                TimerContext.Add(timer);
+                TimerContext.SaveChanges();
+
+                this.rabbitHandler.QueueCommand(timerId, time * 1000);
             }
             else if (message.Message.StartsWith(REPEAT_TIMER))
             {
@@ -79,9 +88,27 @@ namespace Health
             }
         }
 
-        private void HandleRabbitMessage(object? sender, BasicDeliverEventArgs data)
+        private async void HandleRabbitMessage(object? sender, BasicDeliverEventArgs data)
         {
-            Console.WriteLine(Encoding.UTF8.GetString(data.Body.ToArray()));
+            var timerId = Encoding.UTF8.GetString(data.Body.ToArray());
+
+            if (timerId == null)
+            {
+                return;
+            }
+
+            var timerData = await TimerContext.timers.FindAsync(timerId);
+
+            if (timerData != null)
+            {
+                Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
+                TimerContext.timers.Remove(timerData);
+                TimerContext.SaveChanges();
+            }
+            else
+            {
+                Console.WriteLine("Timer expiered, but the data could not be found in the DB");
+            }
         }
 
         public async void Start()

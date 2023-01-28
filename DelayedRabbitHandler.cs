@@ -43,6 +43,7 @@ class DelayedRabbitHandler
         }
 
         this.OnMessageHandler(sender, data);
+        this.channel.BasicAck(data.DeliveryTag, false); // TODO: Probably dont want to ACK before we know that OnMessageHandler did what it wanted.
     }
 
     public void RegisterOnMessageHandler(EventHandler<BasicDeliverEventArgs> handler)
