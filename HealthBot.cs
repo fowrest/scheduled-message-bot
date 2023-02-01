@@ -16,7 +16,7 @@ namespace Health
     {
         TwitchConnection twitchConnection;
         DelayedRabbitHandler rabbitHandler;
-        private const string START_TIMER = "timer";
+        private const string TIMER = "timer";
         private const string REPEAT_TIMER = "repeat";
         private const string REMOVE_TIMER = "remove";
         private const string LIST_TIMERS = "list";
@@ -42,72 +42,118 @@ namespace Health
             Console.WriteLine(message.Username + " | " + message.Message);
             var trimmedMessage = message.Message.Substring("healthBot".Length + 1);
 
-            if (trimmedMessage.StartsWith(START_TIMER))
+
+            var messageContent = trimmedMessage.Substring(trimmedMessage.IndexOf(" ") + 1);
+            Console.WriteLine(messageContent);
+            var toEnqueue = messageContent.Split(" ", 3);
+            var userTimerId = toEnqueue[0];
+
+            int time = -1;
+            try
+            {
+                time = Int32.Parse(toEnqueue[1]);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Bad time: " + e.Message);
+                // return;
+            }
+
+            if (trimmedMessage.StartsWith(TIMER))
             {
                 // Add to rabbit and DB?
-                var messageContent = trimmedMessage.Substring(START_TIMER.Length + 1);
-                var toEnqueue = messageContent.Split(" ", 3);
-                var userTimerId = toEnqueue[0];
-                int time = -1;
-                try
-                {
-                    time = Int32.Parse(toEnqueue[1]);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("Bad time: " + e.Message);
-                    return;
-                }
-
                 if (time < 1)
                 {
                     Console.WriteLine("Time is to smol");
                     return;
                 }
 
+
                 var timerMessage = toEnqueue[2];
                 var timerId = Guid.NewGuid().ToString();
-                var timer = new Database.Timer(timerId, message.Channel, userTimerId, 1, timerMessage);
+                var timer = new Database.Timer(timerId, message.Channel, userTimerId, time, timerMessage);
 
                 TimerContext.Add(timer);
                 TimerContext.SaveChanges();
 
-                this.rabbitHandler.QueueCommand(timerId, time * 1000);
+                this.rabbitHandler.QueueCommand(TIMER + ":" + timerId, time * 1000);
             }
-            else if (message.Message.StartsWith(REPEAT_TIMER))
+            else if (trimmedMessage.StartsWith(REPEAT_TIMER))
             {
+                if (time < 1)
+                {
+                    Console.WriteLine("Time is to smol");
+                    return;
+                }
                 // Enqueue and save to DB
+
+                var timerMessage = toEnqueue[2];
+                var timerId = Guid.NewGuid().ToString();
+
+                // TODO: the time argument here is not correct, probably want to supply both the time and possibly expirt date to be able to list timers.
+                // For the repeat case we need to update the expity time on each re-queue
+                var timer = new Database.RepeatTimer(timerId, message.Channel, userTimerId, time, timerMessage);
+
+                TimerContext.Add(timer);
+                TimerContext.SaveChanges();
+
+                this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + timerId, time * 1000);
             }
-            else if (message.Message.StartsWith(REMOVE_TIMER))
+            else if (trimmedMessage.StartsWith(REMOVE_TIMER))
             {
                 // Remove timer from DB
             }
-            else if (message.Message.StartsWith(LIST_TIMERS))
+            else if (trimmedMessage.StartsWith(LIST_TIMERS))
             {
                 // Get all from DB and list
+            }
+            else
+            {
+                Console.WriteLine("Catch all, did not match any message type");
             }
         }
 
         private async void HandleRabbitMessage(object? sender, BasicDeliverEventArgs data)
         {
-            var timerId = Encoding.UTF8.GetString(data.Body.ToArray());
+            var messageData = Encoding.UTF8.GetString(data.Body.ToArray());
+            var splittedMessageData = messageData.Split(":");
+            var entityType = splittedMessageData[0];
+            var entityId = splittedMessageData[1];
 
-            if (timerId == null)
+            if (entityType == null || entityId == null)
             {
+                Console.WriteLine("Missing type or id, return");
                 return;
             }
 
-            var timerData = await TimerContext.timers.FindAsync(timerId);
-
-            if (timerData != null)
+            if (entityType == TIMER)
             {
-                Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
-                TimerContext.timers.Remove(timerData);
-                TimerContext.SaveChanges();
+                var timerData = await TimerContext.Timers.FindAsync(entityId);
+
+                if (timerData != null)
+                {
+                    Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
+                    TimerContext.Timers.Remove(timerData);
+                    TimerContext.SaveChanges();
+                }
+                else
+                {
+                    Console.WriteLine("Timer expiered, but the data could not be found in the DB");
+                }
+            }
+            else if (entityType == REPEAT_TIMER)
+            {
+                var timerData = await TimerContext.RepeatTimers.FindAsync(entityId);
+
+                if (timerData != null)
+                {
+                    Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
+                    this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, (int)timerData.ExpireTime * 1000);
+                }
             }
             else
             {
-                Console.WriteLine("Timer expiered, but the data could not be found in the DB");
+                Console.WriteLine("No support for entity type" + entityType);
             }
         }
 
