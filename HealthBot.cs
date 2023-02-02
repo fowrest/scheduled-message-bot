@@ -89,10 +89,7 @@ namespace Health
 
                 var timerMessage = toEnqueue[2];
                 var timerId = Guid.NewGuid().ToString();
-
-                // TODO: the time argument here is not correct, probably want to supply both the time and possibly expirt date to be able to list timers.
-                // For the repeat case we need to update the expity time on each re-queue
-                var timer = new Database.RepeatTimer(timerId, message.Channel, userTimerId, time, timerMessage);
+                var timer = new Database.RepeatTimer(timerId, message.Channel, userTimerId, DateTime.Now.AddSeconds(time).ToUniversalTime(), time, timerMessage);
 
                 TimerContext.Add(timer);
                 TimerContext.SaveChanges();
@@ -148,7 +145,10 @@ namespace Health
                 if (timerData != null)
                 {
                     Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
-                    this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, (int)timerData.ExpireTime * 1000);
+                    // TODO: To prevent drift of repeats, need to adjust since we might be of by a second or so.
+                    this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, timerData.TimerInterval * 1000);
+                    timerData.NextExpireTime = DateTime.Now.AddSeconds(timerData.TimerInterval).ToUniversalTime();
+                    TimerContext.SaveChanges();
                 }
             }
             else
