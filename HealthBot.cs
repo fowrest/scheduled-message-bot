@@ -5,7 +5,7 @@ using Twitch;
 
 namespace Health
 {
-    /* 
+    /*
         Consumes commands in the form of:
         @healhbot timer <timer name> <time> <message>
         @healhbot repeat <repeat name> <time> <message>
@@ -20,9 +20,7 @@ namespace Health
         private const string REPEAT_TIMER = "repeat";
         private const string REMOVE_TIMER = "remove";
         private const string LIST_TIMERS = "list";
-
         private static string[] keywords = { "healthBot" };
-
         private TimerContext TimerContext = new TimerContext();
 
         public HealthBot(string username, string password)
@@ -42,7 +40,6 @@ namespace Health
             Console.WriteLine(message.Username + " | " + message.Message);
             var trimmedMessage = message.Message.Substring("healthBot".Length + 1);
 
-
             var messageContent = trimmedMessage.Substring(trimmedMessage.IndexOf(" ") + 1);
             Console.WriteLine(messageContent);
             var toEnqueue = messageContent.Split(" ", 3);
@@ -51,7 +48,10 @@ namespace Health
             int time = -1;
             try
             {
-                time = Int32.Parse(toEnqueue[1]);
+                if (toEnqueue.Length > 1)
+                {
+                    time = Int32.Parse(toEnqueue[1]);
+                }
             }
             catch (Exception e)
             {
@@ -103,6 +103,23 @@ namespace Health
             else if (trimmedMessage.StartsWith(LIST_TIMERS))
             {
                 // Get all from DB and list
+                var timers = TimerContext.Timers.Where(timer => timer.Channel == message.Channel).ToArray();
+                var repeatTimers = TimerContext.RepeatTimers.Where(repeatTimer => repeatTimer.Channel == message.Channel).ToArray();
+
+                var messageOut = "";
+
+                foreach (var timer in timers)
+                {
+                    messageOut += timer.TimerName + " : " + timer.ExpireTime + " : " + timer.Message + "\n";
+                }
+
+                foreach (var timer in repeatTimers)
+                {
+                    messageOut += timer.TimerName + " : " + timer.NextExpireTime + " : " + timer.TimerInterval + " : " + timer.Message + "\n";
+                }
+
+                // TODO: Send messageOut to chat and tag user
+                Console.WriteLine(messageOut);
             }
             else
             {
