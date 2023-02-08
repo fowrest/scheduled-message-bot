@@ -2,6 +2,7 @@
 using Database;
 using RabbitMQ.Client.Events;
 using Twitch;
+using Microsoft.EntityFrameworkCore;
 
 namespace Health
 {
@@ -29,7 +30,6 @@ namespace Health
             twitchConnection.OnMessage += this.HandleChatMessage;
 
             this.rabbitHandler = new DelayedRabbitHandler();
-            this.rabbitHandler.RegisterOnMessageHandler(this.HandleRabbitMessage);
 
             TimerContext.Database.EnsureDeleted(); // TODO: This is for testing
             TimerContext.Database.EnsureCreated();
@@ -43,7 +43,7 @@ namespace Health
             var messageContent = trimmedMessage.Substring(trimmedMessage.IndexOf(" ") + 1);
             Console.WriteLine(messageContent);
             var toEnqueue = messageContent.Split(" ", 3);
-            var userTimerId = toEnqueue[0];
+            var timerName = toEnqueue[0];
 
             int time = -1;
             try
@@ -71,7 +71,7 @@ namespace Health
 
                 var timerMessage = toEnqueue[2];
                 var timerId = Guid.NewGuid().ToString();
-                var timer = new Database.Timer(timerId, message.Channel, userTimerId, time, timerMessage);
+                var timer = new Database.Timer(timerId, message.Channel, timerName, time, timerMessage);
 
                 TimerContext.Add(timer);
                 TimerContext.SaveChanges();
@@ -89,7 +89,7 @@ namespace Health
 
                 var timerMessage = toEnqueue[2];
                 var timerId = Guid.NewGuid().ToString();
-                var timer = new Database.RepeatTimer(timerId, message.Channel, userTimerId, DateTime.Now.AddSeconds(time).ToUniversalTime(), time, timerMessage);
+                var timer = new Database.RepeatTimer(timerId, message.Channel, timerName, DateTime.Now.AddSeconds(time).ToUniversalTime(), time, timerMessage);
 
                 TimerContext.Add(timer);
                 TimerContext.SaveChanges();
@@ -98,7 +98,7 @@ namespace Health
             }
             else if (trimmedMessage.StartsWith(REMOVE_TIMER))
             {
-                // Remove timer from DB
+                this.DeleteWithoutQuery(message.Channel, timerName);
             }
             else if (trimmedMessage.StartsWith(LIST_TIMERS))
             {
@@ -178,7 +178,33 @@ namespace Health
         {
             await this.twitchConnection.Connect();
             await this.twitchConnection.JoinChannel("faowrest");
+            this.rabbitHandler.RegisterOnMessageHandler(this.HandleRabbitMessage);
         }
 
+
+        private void DeleteWithoutQuery(string channel, string timerName)
+        {
+            var timer = TimerContext.Timers.Local.Where(timer => timer.Channel == channel && timer.TimerName == timerName).SingleOrDefault();
+            if (timer != null)
+            {
+                TimerContext.Timers.Entry(timer).State = EntityState.Deleted;
+                TimerContext.SaveChanges();
+            }
+            else
+            {
+                var removedTimers = TimerContext.Database.ExecuteSqlInterpolated($"DELETE FROM \"Timers\" WHERE \"Channel\"={channel} AND \"TimerName\"={timerName}");
+            }
+
+            var repeatTimer = TimerContext.RepeatTimers.Local.Where(timer => timer.Channel == channel && timer.TimerName == timerName).SingleOrDefault();
+            if (repeatTimer != null)
+            {
+                TimerContext.RepeatTimers.Entry(repeatTimer).State = EntityState.Deleted;
+                TimerContext.SaveChanges();
+            }
+            else
+            {
+                var removedRepeaters = TimerContext.Database.ExecuteSqlInterpolated($"DELETE FROM \"RepeatTimers\" WHERE \"Channel\"={channel} AND \"TimerName\"={timerName}");
+            }
+        }
     }
 }
