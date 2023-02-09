@@ -162,9 +162,11 @@ namespace Health
                 if (timerData != null)
                 {
                     Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
-                    // TODO: To prevent drift of repeats, need to adjust since we might be of by a second or so.
-                    this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, timerData.TimerInterval * 1000);
-                    timerData.NextExpireTime = DateTime.Now.AddSeconds(timerData.TimerInterval).ToUniversalTime();
+                    var newNextExpireTime = timerData.NextExpireTime.AddSeconds(timerData.TimerInterval);
+
+                    var diffInMilis = (int)(newNextExpireTime - DateTime.Now.ToUniversalTime()).TotalMilliseconds;
+                    this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, diffInMilis);
+                    timerData.NextExpireTime = newNextExpireTime;
                     TimerContext.SaveChanges();
                 }
             }
