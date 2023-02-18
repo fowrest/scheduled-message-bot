@@ -9,15 +9,13 @@ namespace Database
         public double ExpireTime { get; set; } // Unix timestamp when the timer expires
         public string Message { get; set; }
 
-        public Timer(string id, string channel, string timerName, double expireDate, string message)
+        public Timer(string id, string channel, string timerName, double expireTime, string message)
         {
             this.Id = id;
             this.Channel = channel;
             this.TimerName = timerName;
-            this.ExpireTime = expireDate;
+            this.ExpireTime = expireTime;
             this.Message = message;
         }
-
-        public Timer() { }
     }
 }

@@ -37,8 +37,8 @@ namespace Twitch
             await streamWriter.WriteLineAsync("NICK " + this.username);
             connected.SetResult(0);
 
-            Task.Run(Read);
-            Task.Run(Consume);
+            _ = Task.Run(Read);
+            _ = Task.Run(Consume);
         }
 
         private (string Username, string Message, string Channel) ParseMessage(string[] split)
@@ -59,18 +59,16 @@ namespace Twitch
                 {
                     continue;
                 }
-                string? line = streamReader.ReadLine(); // :96allskills!96allskills@96allskills.tmi.twitch.tv PRIVMSG #alveussanctuary :waaa Spaceee a password
+                string? line = streamReader.ReadLine();
 
                 if (line == null)
                 {
-                    Console.WriteLine("Skipping!");
                     continue;
                 }
 
                 string[] split = line.Split(" ", 4); // [name, message type, channel, message]
                 if (line.StartsWith("PING"))
                 {
-                    Console.WriteLine("PONG");
                     if (streamWriter != null)
                     {
                         await streamWriter.WriteLineAsync($"PONG {split[1]}");
@@ -94,6 +92,7 @@ namespace Twitch
         {
             while (true)
             {
+                Console.WriteLine("loop!");
                 var message = await ingestQueue.Reader.ReadAsync();
                 this.OnMessage(message);
             }

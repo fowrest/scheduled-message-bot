@@ -115,7 +115,7 @@ namespace Health
 
                 foreach (var timer in repeatTimers)
                 {
-                    messageOut += timer.TimerName + " : " + timer.NextExpireTime + " : " + timer.TimerInterval + " : " + timer.Message + "\n";
+                    messageOut += timer.TimerName + " : " + timer.NextExpireDate + " : " + timer.TimerInterval + " : " + timer.Message + "\n";
                 }
 
                 // TODO: Send messageOut to chat and tag user
@@ -162,11 +162,11 @@ namespace Health
                 if (timerData != null)
                 {
                     Console.WriteLine("Dink donk: " + timerData.Channel + timerData.TimerName + timerData.Message);
-                    var newNextExpireTime = timerData.NextExpireTime.AddSeconds(timerData.TimerInterval);
+                    var newNextExpireTime = timerData.NextExpireDate.AddSeconds(timerData.TimerInterval);
 
                     var diffInMilis = (int)(newNextExpireTime - DateTime.Now.ToUniversalTime()).TotalMilliseconds;
                     this.rabbitHandler.QueueCommand(REPEAT_TIMER + ":" + entityId, diffInMilis);
-                    timerData.NextExpireTime = newNextExpireTime;
+                    timerData.NextExpireDate = newNextExpireTime;
                     TimerContext.SaveChanges();
                 }
             }
@@ -182,7 +182,6 @@ namespace Health
             await this.twitchConnection.JoinChannel("faowrest");
             this.rabbitHandler.RegisterOnMessageHandler(this.HandleRabbitMessage);
         }
-
 
         private void DeleteWithoutQuery(string channel, string timerName)
         {

@@ -6,7 +6,7 @@ namespace Database
         public string Id { get; set; }
         public string Channel { get; set; }
         public string TimerName { get; set; }
-        public DateTime NextExpireTime { get; set; }
+        public DateTime NextExpireDate { get; set; }
         public int TimerInterval { get; set; }
         public string Message { get; set; }
 
@@ -15,11 +15,9 @@ namespace Database
             this.Id = id;
             this.Channel = channel;
             this.TimerName = timerName;
-            this.NextExpireTime = nextExpireDate;
+            this.NextExpireDate = nextExpireDate;
             this.TimerInterval = timerInterval;
             this.Message = message;
         }
-
-        public RepeatTimer() { }
     }
 }
